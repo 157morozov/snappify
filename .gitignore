@@ -1,0 +1,78 @@
+# ── Python / FastAPI ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+server/.venv/
+server/venv/
+server/env/
+
+# Environment variables
+server/.env
+server/.env.*
+!server/.env.example
+
+# SQLite
+server/*.db
+server/*.sqlite
+server/*.sqlite3
+
+# Alembic (keep versions folder, ignore local config)
+server/alembic.ini.local
+
+# Pytest
+.pytest_cache/
+server/.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Mypy / Ruff / Pyright
+.mypy_cache/
+.ruff_cache/
+pyrightconfig.json
+
+
+# ── Node / Vite / React ───────────────────────────────────────────
+client/node_modules/
+client/dist/
+client/.vite/
+
+# Environment variables
+client/.env
+client/.env.*
+!client/.env.example
+
+# Logs
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+
+# TypeScript cache
+client/*.tsbuildinfo
+
+
+# ── OS ────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+
+# ── IDE ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
