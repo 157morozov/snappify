@@ -1,0 +1,30 @@
+.user-event-create {
+    width: calc(100% - var(--padding--extra-big) * 2);
+    padding: var(--padding--regular) var(--padding--extra-big);
+
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: var(--gap--big);
+}
+
+.user-event-create--heading,
+.user-event-create--heading>span {
+    font-size: var(--font-size--heading-1);
+    font-weight: bold;
+}
+
+.user-event-create--heading {
+    font-family: var(--font-family--accent-italic);
+}
+
+.user-event-create--heading>span {
+    color: var(--color--accent-3);
+
+    font-family: var(--font-family--accent-italic);
+}
+
+.user-event-create--description {
+    color: var(--color--gray-5);
+    font-size: var(--font-size--small);
+}

@@ -1,0 +1,30 @@
+.user-nav {
+    margin: calc(-1 * var(--margin--big)) 0 var(--margin--big) 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap--big);
+
+    border-bottom: var(--border--0);
+}
+
+.user-nav--link {
+    padding: var(--padding--big);
+
+    color: var(--color--gray-5);
+
+    transition: var(--transition--0);
+}
+
+.user-nav--link:is(:hover, :focus-visible) {
+    color: var(--color--text);
+}
+
+
+.user-nav--link__active {
+    color: var(--color--text);
+
+    border-bottom: var(--border--0);
+    border-color: var(--color--accent-3);
+}

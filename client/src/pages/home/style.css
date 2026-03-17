@@ -1,0 +1,26 @@
+.user-home {
+    width: calc(100% - var(--padding--extra-big) * 2);
+    padding: 0 var(--padding--extra-big);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap--big);
+}
+
+.user-home--events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap--big);
+}
+
+.user-home--events--heading {
+    color: var(--color--gray-5);
+
+    text-transform: uppercase;
+}
+
+.user-home--event {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap--big);
+}

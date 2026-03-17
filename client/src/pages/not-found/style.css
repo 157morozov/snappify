@@ -1,0 +1,24 @@
+.not-found {
+    width: calc(100% - var(--padding--regular) * 2);
+    padding: 0 var(--padding--regular) var(--padding--regular);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap--regular);
+    align-items: center;
+    justify-content: center;
+}
+
+.not-found--code {
+    padding: var(--padding--big) var(--padding--extra-big);
+
+    color: var(--color--error-text);
+    background-color: var(--color--error-bg);
+    border: var(--border--0);
+    border-color: var(--color--error);
+    border-radius: var(--border-radius--regular);
+}
+
+.not-found--heading {
+    text-align: center;
+}

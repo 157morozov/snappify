@@ -1,0 +1,46 @@
+:root {
+    --height--user-header: 70px;
+}
+
+.user-header {
+    width: calc(100% - var(--padding--extra-big) * 2);
+    height: var(--height--user-header);
+    padding: 0 var(--padding--extra-big);
+    margin-bottom: var(--margin--big);
+
+    display: flex;
+    align-items: center;
+
+    border-bottom: var(--border--0);
+}
+
+.user-header--brend-text,
+.user-header--brend-text > span {
+    font-size: var(--font-size--heading-3);
+    font-family: var(--font-family--accent);
+}
+
+.user-header--brend-text > span {
+    color: var(--color--accent-3);
+    
+    font-family: var(--font-family--accent-italic);
+}
+
+.user-header--profile {
+    margin-left: auto;
+    padding: var(--padding--regular);
+    aspect-ratio: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: var(--border--0);
+    border-radius: var(--border-radius--round);
+
+    transition: var(--transition--0);
+}
+
+.user-header--profile:is(:hover, :focus-visible) {
+    background-color: var(--background--card-1);
+}

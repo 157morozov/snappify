@@ -1,0 +1,28 @@
+:root {
+    --height--guest-header: 70px;
+}
+
+.guest-header {
+    width: calc(100% - var(--padding--extra-big) * 2);
+    height: var(--height--guest-header);
+    padding: 0 var(--padding--extra-big);
+    margin-bottom: var(--margin--big);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-bottom: var(--border--0);
+}
+
+.guest-header--brend-text,
+.guest-header--brend-text > span {
+    font-size: var(--font-size--heading-3);
+    font-family: var(--font-family--accent);
+}
+
+.guest-header--brend-text > span {
+    color: var(--color--accent-3);
+    
+    font-family: var(--font-family--accent-italic);
+}
