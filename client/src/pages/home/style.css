@@ -16,11 +16,58 @@
 .user-home--events--heading {
     color: var(--color--gray-5);
 
+    font-size: var(--font-size--small);
     text-transform: uppercase;
 }
 
 .user-home--event {
+    width: calc(100% - var(--padding--big) * 2 - var(--border-size--0) * 2);
+    padding: var(--padding--big);
+
     display: flex;
     flex-direction: column;
     gap: var(--gap--big);
+
+    background-color: var(--background--card-0);
+    border: var(--border--0);
+    border-radius: var(--border-radius--regular);
+
+    transition: var(--transition--0);
 }
+
+.user-home--event:is(:hover, :focus-visible) {
+    background-color: var(--background--card-1);
+}
+
+.user-home--event__active {
+    border-top-color: var(--color--success-text);
+}
+
+.user-home--event__pending {
+    border-top-color: var(--color--warning-text);
+}
+
+.user-home--event__closed {
+    border-top-color: var(--color--error-text);
+}
+
+.user-home--event--heading {
+    font-family: var(--font-family--accent);
+    font-size: var(--font-size--heading-3);
+    font-weight: normal;
+}
+
+.user-home--event--configures {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--gap--regular);
+}
+
+.user-home--event--configure {
+    display: flex;
+    align-items: center;
+
+    opacity: .5;
+}
+

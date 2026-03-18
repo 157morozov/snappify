@@ -221,3 +221,15 @@ h6 {
 .link:is(:active) {
     scale: .95;
 }
+
+.space--big {
+    height: var(--gap--big);
+}
+
+.space--regular {
+    height: var(--gap--regular);
+}
+
+.space--small {
+    height: var(--gap--small);
+}

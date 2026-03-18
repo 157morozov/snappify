@@ -1,0 +1,100 @@
+.user-event {
+    width: calc(100% - var(--padding--extra-big) * 2);
+    padding: var(--padding--regular) var(--padding--extra-big);
+
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: var(--gap--big);
+}
+
+.user-event--heading {
+    font-family: var(--font-family--accent-italic);
+    font-size: var(--font-size--heading-1);
+    font-weight: bold;
+}
+
+.user-event--date {
+    color: var(--color--gray-5);
+    font-size: var(--font-size--small);
+}
+
+.user-event--configures {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--gap--regular);
+}
+
+.user-event--configure {
+    padding: var(--padding--regular);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    background-color: var(--background--card-0);
+    border: var(--border--0);
+    border-radius: var(--border-radius--regular);
+}
+
+.user-event--configure--number {
+    font-size: var(--font-size--heading-1);
+    font-family: var(--font-family--accent);
+}
+
+.user-event--configure--caption {
+    color: var(--color--gray-5);
+
+    font-size: var(--font-size--small);
+    text-transform: lowercase;
+}
+
+.user-event--invite {
+    width: calc(100% - var(--padding--big) * 2 - var(--border-size--0) * 2);
+    padding: var(--padding--big);
+
+    display: flex;
+    align-items: center;
+    gap: var(--gap--regular);
+
+    background-color: var(--background--card-0);
+    border: var(--border--0);
+    border-radius: var(--border-radius--regular);
+}
+
+.user-event--invite--qr {
+    padding: var(--padding--big);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: var(--background--card-1);
+    border-radius: var(--border-radius--small);
+}
+
+.user-event--invite--description {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap--small);
+}
+
+.user-event--invite--url {
+    color: var(--color--gray-5);
+
+    font-size: var(--font-size--small);
+}
+
+.user-event--invite--copy {
+    width: fit-content !important;
+    padding: var(--padding--regular) !important;
+    margin-left: auto;
+
+    color: var(--color--accent-text) !important;
+    background-color: var(--color--accent-bg) !important;
+    border-color: var(--color--accent) !important;
+    border-radius: var(--border-radius--small) !important;
+}

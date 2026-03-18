@@ -10,8 +10,9 @@ import "./style.css"
 function Home() {
     const [events, setEvents] = useState(initialEvents)
 
-    const activeEvents = events.filter(e => e.status !== 'closed');
-    const closedEvents = events.filter(e => e.status === 'closed');
+    const activeEvents = events.filter(e => e.status === 'active')
+    const closedEvents = events.filter(e => e.status === 'closed')
+    const pendingEvents  = events.filter(e => e.status === 'pending')
 
     return (
         <>
@@ -23,19 +24,44 @@ function Home() {
                         <>
                             <p className="user-home--events--heading">Активные</p>
                             {activeEvents.map(event => (
-                                <div key={event.id} className="user-home--event">
-
-                                </div>
+                                <Link to={`/event/${event.code}`} key={event.id} className="user-home--event user-home--event__active">
+                                    <h3 className="user-home--event--heading">{event.name}</h3>
+                                    <div className="user-home--event--configures">
+                                        <span className="user-home--event--configure">📅 {event.date}</span>
+                                        <span className="user-home--event--configure">👥 {event.participants} чел.</span>
+                                        <span className="user-home--event--configure">📷 {event.shots}</span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </>
+                    }
+                    {pendingEvents.length > 0 &&
+                        <>
+                            <p className="user-home--events--heading">В ожидании</p>
+                            {pendingEvents.map(event => (
+                                <Link to={`/event/${event.code}`} key={event.id} className="user-home--event user-home--event__pending">
+                                    <h3 className="user-home--event--heading">{event.name}</h3>
+                                    <div className="user-home--event--configures">
+                                        <span className="user-home--event--configure">📅 {event.date}</span>
+                                        <span className="user-home--event--configure">👥 {event.participants} чел.</span>
+                                        <span className="user-home--event--configure">📷 {event.shots}</span>
+                                    </div>
+                                </Link>
                             ))}
                         </>
                     }
                     {closedEvents.length > 0 &&
                         <>
                             <p className="user-home--events--heading">Прошедшие</p>
-                            {activeEvents.map(event => (
-                                <div key={event.id} className="user-home--event">
-
-                                </div>
+                            {closedEvents.map(event => (
+                                <Link to={`/event/${event.code}`} key={event.id} className="user-home--event user-home--event__closed">
+                                    <h3 className="user-home--event--heading">{event.name}</h3>
+                                    <div className="user-home--event--configures">
+                                        <span className="user-home--event--configure">📅 {event.date}</span>
+                                        <span className="user-home--event--configure">👥 {event.participants} чел.</span>
+                                        <span className="user-home--event--configure">📷 {event.shots}</span>
+                                    </div>
+                                </Link>
                             ))}
                         </>
                     }

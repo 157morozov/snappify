@@ -30,8 +30,8 @@ function EventCreateForm() {
                             <p className="user-event-create--form--box-caption">Фото появятся на следующий день</p>
                         </div>
                         <input id="inpEventDelayedPhoto" className="user-event-create--form--box-checkbox" type="checkbox" name="eventDelayedPhoto" hidden />
-                        <label htmlFor="inpEventDelayedPhoto" class="user-event-create--form--toggle">
-                            <div class="user-event-create--form--toggle-dot"></div>
+                        <label htmlFor="inpEventDelayedPhoto" className="user-event-create--form--toggle">
+                            <div className="user-event-create--form--toggle-dot"></div>
                         </label>
                     </div>
                     <div className="user-event-create--form--box">
@@ -40,13 +40,13 @@ function EventCreateForm() {
                             <p className="user-event-create--form--box-caption">Эффект одноразового фотоаппарата</p>
                         </div>
                         <input id="inpEventOldFilter" className="user-event-create--form--box-checkbox" type="checkbox" name="eventOldFilter" hidden />
-                        <label htmlFor="inpEventOldFilter" class="user-event-create--form--toggle">
-                            <div class="user-event-create--form--toggle-dot"></div>
+                        <label htmlFor="inpEventOldFilter" className="user-event-create--form--toggle">
+                            <div className="user-event-create--form--toggle-dot"></div>
                         </label>
                     </div>
                 </div>
                 <button type="submit" className="button">Создать мероприятие</button>
-                <button type="submit" className="button button__outline">Отмена</button>
+                <button type="button" className="button button__outline">Отмена</button>
             </form>
         </>
     )
