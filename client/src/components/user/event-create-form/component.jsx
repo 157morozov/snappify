@@ -10,18 +10,20 @@ function EventCreateForm() {
     const [delayed, setDelayed] = useState(false)
     const [film, setFilm] = useState(false)
     const [error, setError] = useState('')
+    const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
 
     async function handleSubmit(event) {
         event.preventDefault()
         setError('')
+        setLoading(true)
         try {
             const revealAt = delayed ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : null
             const data = await api.createEvent({ name, shots_limit: Number(photoCount), reveal_mode: delayed ? 'delayed' : 'instant', reveal_at: revealAt, is_public: true, film_filter: film })
             navigate(`/event/${data.code}`)
         } catch (err) {
             setError(err.message)
-        }
+        } finally { setLoading(false) }
     }
 
     return (
@@ -38,11 +40,25 @@ function EventCreateForm() {
                 </div>
             </div>
             <div className="user-event-create--form--boxes">
-                <div className="user-event-create--form--box"><p className="user-event-create--form--box-title">Отложенное открытие</p><input type='checkbox' checked={delayed} onChange={e=>setDelayed(e.target.checked)} /></div>
-                <div className="user-event-create--form--box"><p className="user-event-create--form--box-title">Фильтр «плёнка»</p><input type='checkbox' checked={film} onChange={e=>setFilm(e.target.checked)} /></div>
+                <div className="user-event-create--form--box">
+                    <div className="user-event-create--form--box-desc">
+                        <p className="user-event-create--form--box-title">Отложенное открытие</p>
+                        <p className="user-event-create--form--box-caption">Фото появятся на следующий день</p>
+                    </div>
+                    <input id="inpEventDelayedPhoto" className="user-event-create--form--box-checkbox" type="checkbox" name="eventDelayedPhoto" checked={delayed} onChange={e => setDelayed(e.target.checked)} hidden />
+                    <label htmlFor="inpEventDelayedPhoto" className="user-event-create--form--toggle"><div className="user-event-create--form--toggle-dot"></div></label>
+                </div>
+                <div className="user-event-create--form--box">
+                    <div className="user-event-create--form--box-desc">
+                        <p className="user-event-create--form--box-title">Фильтр «плёнка»</p>
+                        <p className="user-event-create--form--box-caption">Эффект одноразового фотоаппарата</p>
+                    </div>
+                    <input id="inpEventOldFilter" className="user-event-create--form--box-checkbox" type="checkbox" name="eventOldFilter" checked={film} onChange={e => setFilm(e.target.checked)} hidden />
+                    <label htmlFor="inpEventOldFilter" className="user-event-create--form--toggle"><div className="user-event-create--form--toggle-dot"></div></label>
+                </div>
             </div>
-            <button type="submit" className="button">Создать мероприятие</button>
-            {error && <p>{error}</p>}
+            <button type="submit" className="button" disabled={loading}>{loading ? 'Создаем...' : 'Создать мероприятие'}</button>
+            {error && <p className='auth-error'>{error}</p>}
         </form>
     )
 }

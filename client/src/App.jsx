@@ -10,6 +10,7 @@ import Event from "./pages/event/event/page"
 import AuthPage from "./pages/auth/page"
 import NotFound from "./pages/not-found/page"
 import VerifyPage from "./pages/auth/verify/page"
+import ProfilePage from "./pages/profile/page"
 
 import "./assets/global.css"
 
@@ -25,6 +26,7 @@ function App() {
         { path: "/event/create", element: <Create/> },
         { path: "/event/join", element: <Join/> },
         { path: "/event/:code", element: <Event/> },
+        { path: "/profile", element: <ProfilePage/> },
     ]
 
     return (

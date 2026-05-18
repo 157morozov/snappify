@@ -1,12 +1,9 @@
 import hashlib
-import logging
 import os
 import secrets
-import smtplib
 import sqlite3
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
@@ -14,11 +11,9 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 load_dotenv()
-logger = logging.getLogger("snappify")
-
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "snappify.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -32,6 +27,10 @@ async def lifespan(_: FastAPI):
     init_db()
     yield
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(title="Snappify API", lifespan=lifespan)
 app.add_middleware(
@@ -45,14 +44,19 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 class RegisterIn(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
     name: str = Field(min_length=2, max_length=70)
+    login: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=128)
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    login: str
     password: str
+
+
+class PasskeyConfirmIn(BaseModel):
+    login: str
+    passkey_code: str = Field(min_length=6, max_length=6)
 
 
 class EventIn(BaseModel):
@@ -86,27 +90,6 @@ def verify_password(password: str, stored: str) -> bool:
     return secrets.compare_digest(check, digest)
 
 
-def send_mail(to_email: str, subject: str, body: str) -> tuple[bool, str]:
-    gmail_user = (os.getenv("GMAIL_USER") or "").strip().strip('"')
-    gmail_pass = (os.getenv("GMAIL_APP_PASSWORD") or "").strip().strip('"')
-    if not gmail_user or not gmail_pass:
-        return False, "Gmail credentials are not configured"
-
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = gmail_user
-    msg["To"] = to_email
-    msg.set_content(body)
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as smtp:
-            smtp.login(gmail_user, gmail_pass)
-            smtp.send_message(msg)
-        return True, "sent"
-    except Exception as exc:
-        logger.warning("Failed to send email: %s", exc)
-        return False, str(exc)
-
-
 def init_db() -> None:
     with closing(db()) as conn:
         conn.executescript(
@@ -118,6 +101,7 @@ def init_db() -> None:
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'organizer',
                 is_verified INTEGER NOT NULL DEFAULT 0,
+                passkey_code TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS verification_codes (
@@ -193,31 +177,37 @@ def doc_redirect(request: Request):
 
 @app.post("/api/auth/register")
 def register(payload: RegisterIn):
+    login = payload.login.strip().lower()
+    name = payload.name.strip().replace("<", "").replace(">", "")
+    passkey_code = str(secrets.randbelow(900000) + 100000)
     with closing(db()) as conn:
-        existing = conn.execute("SELECT * FROM users WHERE email=?", (payload.email,)).fetchone()
-        code = str(secrets.randbelow(900000) + 100000)
-        expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
-
+        existing = conn.execute("SELECT * FROM users WHERE email=?", (login,)).fetchone()
         if existing:
-            if existing["is_verified"]:
-                raise HTTPException(400, "Email already registered")
-            conn.execute("UPDATE users SET name=?, password_hash=? WHERE id=?", (payload.name, hash_password(payload.password), existing["id"]))
-            conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (existing["id"], code, expires))
-            conn.commit()
-        else:
-            conn.execute("INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)", (payload.name, payload.email, hash_password(payload.password), now()))
-            user_id = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()["id"]
-            conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (user_id, code, expires))
-            conn.commit()
+            raise HTTPException(400, "Login already registered")
+        conn.execute(
+            "INSERT INTO users(name,email,password_hash,is_verified,passkey_code,created_at) VALUES(?,?,?,?,?,?)",
+            (name, login, hash_password(payload.password), 0, passkey_code, now()),
+        )
+        conn.commit()
+    return {"ok": True, "message": "Подтвердите passkey на этом компьютере", "passkey_code": passkey_code, "login": login}
 
-    mail_ok, mail_message = send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
-    if not mail_ok:
-        return {"ok": False, "message": "Письмо не отправлено. Используйте dev_code для подтверждения.", "dev_code": code, "mail_error": mail_message}
-    return {"ok": True, "message": "Код отправлен на email"}
+
+@app.post("/api/auth/passkey/confirm")
+def passkey_confirm(payload: PasskeyConfirmIn):
+    login = payload.login.strip().lower()
+    with closing(db()) as conn:
+        user = conn.execute("SELECT * FROM users WHERE email=?", (login,)).fetchone()
+        if not user:
+            raise HTTPException(404, "User not found")
+        if user["passkey_code"] != payload.passkey_code:
+            raise HTTPException(400, "Invalid passkey")
+        conn.execute("UPDATE users SET is_verified=1, passkey_code=NULL WHERE id=?", (user["id"],))
+        conn.commit()
+    return {"ok": True}
 
 
 @app.post("/api/auth/verify")
-def verify(email: EmailStr = Form(), code: str = Form()):
+def verify(email: str = Form(), code: str = Form()):
     with closing(db()) as conn:
         user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if not user:
@@ -233,11 +223,11 @@ def verify(email: EmailStr = Form(), code: str = Form()):
 @app.post("/api/auth/login")
 def login(payload: LoginIn):
     with closing(db()) as conn:
-        user = conn.execute("SELECT * FROM users WHERE email=?", (payload.email,)).fetchone()
+        user = conn.execute("SELECT * FROM users WHERE email=?", (payload.login,)).fetchone()
         if not user or not verify_password(payload.password, user["password_hash"]):
             raise HTTPException(401, "Invalid credentials")
         if not user["is_verified"]:
-            raise HTTPException(403, "Email is not verified")
+            raise HTTPException(403, "Passkey is not confirmed")
         token = secrets.token_urlsafe(40)
         expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         conn.execute("INSERT INTO sessions(user_id,token,expires_at) VALUES(?,?,?)", (user["id"], token, expires))
