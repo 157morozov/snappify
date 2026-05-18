@@ -279,6 +279,15 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
     return {"ok": True, "code": code}
 
 
+@app.get("/api/public/events/{code}")
+def get_public_event(code: str):
+    with closing(db()) as conn:
+        event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
+        if not event:
+            raise HTTPException(404, "Мероприятие не найдено")
+        return dict(event)
+
+
 @app.post("/api/events/{code}/join")
 def join_event(code: str, guest_name: str = Form(...)):
     guest_name = sanitize_text(guest_name, 70)
@@ -305,6 +314,13 @@ def upload_photo(code: str, guest_key: str = Form(...), filter_name: str = Form(
         if not event:
             raise HTTPException(404, "Мероприятие не найдено")
         participant = conn.execute("SELECT * FROM participants WHERE event_id=? AND guest_key=?", (event["id"], guest_key)).fetchone()
+        now_ts = datetime.now(timezone.utc).timestamp()
+        start_ts = datetime.fromisoformat(event["start_at"]).timestamp() if event["start_at"] else None
+        end_ts = datetime.fromisoformat(event["end_at"]).timestamp() if event["end_at"] else None
+        if start_ts and now_ts < start_ts:
+            raise HTTPException(403, "Мероприятие еще не началось")
+        if end_ts and now_ts > end_ts:
+            raise HTTPException(403, "Мероприятие завершено")
         if not participant:
             raise HTTPException(401, "Неверный гостевой ключ")
         if participant["shots_used"] >= event["shots_limit"]:
