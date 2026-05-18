@@ -40,6 +40,6 @@ export default function AuthPage() {
     <button className='button button__outline' onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
       {mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}
     </button>
-    {error && <p className='auth-error'>{error}</p>}
+    {error && <div className='auth-error-box'><b>Ошибка</b><span>{error}</span></div>}
   </div>
 }
