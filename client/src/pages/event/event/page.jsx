@@ -1,5 +1,5 @@
 import {Link, useParams} from "react-router-dom"
-import {useEffect, useMemo, useState} from "react"
+import {useEffect, useState} from "react"
 
 import {DOMAIN_NAME} from "../../../data/constants"
 import {api} from "../../../api"
@@ -35,43 +35,13 @@ function Event() {
     if (!event) return <div className="user-event"><p>Мероприятие не найдено.</p><Link to='/' className='link'>Назад</Link></div>
 
 
-    const status = useMemo(() => {
-        const start = event?.start_at ? new Date(event.start_at).getTime() : null
-        const end = event?.end_at ? new Date(event.end_at).getTime() : null
-        if (!start && !end) return 'Без даты'
-        if (start && tick < start) return 'Запланировано'
-        if (start && end && tick >= start && tick <= end) return 'В процессе'
-        if (end && tick > end) return 'Завершено'
-        return 'Без даты'
-    }, [event, tick])
-
-    const timerText = useMemo(() => {
-        if (!event) return ''
-        const start = event.start_at ? new Date(event.start_at).getTime() : null
-        const end = event.end_at ? new Date(event.end_at).getTime() : null
-        const fmt = (ms) => {
-            const total = Math.max(0, Math.floor(ms / 1000))
-            const h = Math.floor(total / 3600)
-            const m = Math.floor((total % 3600) / 60)
-            const s = total % 60
-            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-        }
-        if (start && tick < start) return `До начала: ${fmt(start - tick)}`
-        if (start && end && tick <= end) return `До конца: ${fmt(end - tick)}`
-        if (end && tick > end) return `После завершения: ${fmt(tick - end)}`
-        return 'Таймер недоступен'
-    }, [event, tick])
-
-
-    const revealAllowed = useMemo(() => {
-        if (!event) return false
-        if (event.reveal_mode === 'instant') return true
-        const end = event.end_at ? new Date(event.end_at).getTime() : null
-        const revealAt = event.reveal_at ? new Date(event.reveal_at).getTime() : null
-        if (end && tick >= end) return true
-        if (revealAt && tick >= revealAt) return true
-        return false
-    }, [event, tick])
+    const start = event.start_at ? new Date(event.start_at).getTime() : null
+    const end = event.end_at ? new Date(event.end_at).getTime() : null
+    const revealAt = event.reveal_at ? new Date(event.reveal_at).getTime() : null
+    const status = !start && !end ? 'Без даты' : (start && tick < start ? 'Запланировано' : (start && end && tick <= end ? 'В процессе' : (end && tick > end ? 'Завершено' : 'Без даты')))
+    const fmt = (ms) => { const total = Math.max(0, Math.floor(ms/1000)); const h=Math.floor(total/3600); const m=Math.floor((total%3600)/60); const s=total%60; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` }
+    const timerText = start && tick < start ? `До начала: ${fmt(start-tick)}` : (start && end && tick <= end ? `До конца: ${fmt(end-tick)}` : (end && tick > end ? `После завершения: ${fmt(tick-end)}` : 'Таймер недоступен'))
+    const revealAllowed = event.reveal_mode === 'instant' || (end && tick >= end) || (revealAt && tick >= revealAt)
 
     const eventUrl = `${DOMAIN_NAME}/event/${event.code}`
 

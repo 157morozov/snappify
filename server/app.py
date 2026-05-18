@@ -181,14 +181,14 @@ def init_db() -> None:
 def get_current_user(authorization: str = Header(default="")) -> sqlite3.Row:
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
-        raise HTTPException(401, "Missing token")
+        raise HTTPException(401, "Отсутствует токен авторизации")
     with closing(db()) as conn:
         session = conn.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,)).fetchone()
         if not session or datetime.fromisoformat(session["expires_at"]) < datetime.now(timezone.utc):
-            raise HTTPException(401, "Session expired")
+            raise HTTPException(401, "Сессия истекла")
         user = conn.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
         if not user:
-            raise HTTPException(401, "User not found")
+            raise HTTPException(401, "Пользователь не найден")
         return user
 
 
@@ -207,13 +207,13 @@ def register(payload: RegisterIn):
     with closing(db()) as conn:
         existing = conn.execute("SELECT * FROM users WHERE email=?", (login,)).fetchone()
         if existing:
-            raise HTTPException(400, "Login already registered")
+            raise HTTPException(400, "Логин уже зарегистрирован")
         conn.execute(
             "INSERT INTO users(name,email,password_hash,is_verified,passkey_code,created_at) VALUES(?,?,?,?,?,?)",
             (name, login, hash_password(payload.password), 0, passkey_code, now()),
         )
         conn.commit()
-    return {"ok": True, "message": "Подтвердите passkey на этом компьютере", "passkey_code": passkey_code, "login": login}
+    return {"ok": True, "message": "Подтвердите ключ доступа на этом компьютере", "passkey_code": passkey_code, "login": login}
 
 
 @app.post("/api/auth/passkey/confirm")
@@ -222,9 +222,9 @@ def passkey_confirm(payload: PasskeyConfirmIn):
     with closing(db()) as conn:
         user = conn.execute("SELECT * FROM users WHERE email=?", (login,)).fetchone()
         if not user:
-            raise HTTPException(404, "User not found")
+            raise HTTPException(404, "Пользователь не найден")
         if user["passkey_code"] != payload.passkey_code:
-            raise HTTPException(400, "Invalid passkey")
+            raise HTTPException(400, "Неверный код подтверждения")
         conn.execute("UPDATE users SET is_verified=1, passkey_code=NULL WHERE id=?", (user["id"],))
         conn.commit()
     return {"ok": True}
@@ -237,9 +237,9 @@ def login(payload: LoginIn):
     with closing(db()) as conn:
         user = conn.execute("SELECT * FROM users WHERE email=?", (payload.login,)).fetchone()
         if not user or not verify_password(payload.password, user["password_hash"]):
-            raise HTTPException(401, "Invalid credentials")
+            raise HTTPException(401, "Неверный логин или пароль")
         if not user["is_verified"]:
-            raise HTTPException(403, "Passkey is not confirmed")
+            raise HTTPException(403, "Ключ доступа не подтвержден")
         token = secrets.token_urlsafe(40)
         expires = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         conn.execute("INSERT INTO sessions(user_id,token,expires_at) VALUES(?,?,?)", (user["id"], token, expires))
@@ -259,7 +259,7 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
     code = ""
     event_name = sanitize_text(payload.name, 140)
     if payload.start_at and payload.end_at and payload.end_at < payload.start_at:
-        raise HTTPException(400, "Event end date must be after start date")
+        raise HTTPException(400, "Дата окончания должна быть позже даты начала")
     with closing(db()) as conn:
         for _ in range(10):
             candidate = secrets.token_urlsafe(6)[:6]
@@ -268,7 +268,7 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
                 code = candidate
                 break
         if not code:
-            raise HTTPException(500, "Could not generate event code")
+            raise HTTPException(500, "Не удалось сгенерировать код мероприятия")
 
         conn.execute(
             """INSERT INTO events(owner_id,code,name,shots_limit,reveal_mode,reveal_at,is_public,film_filter,start_at,end_at,created_at)
@@ -283,11 +283,11 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
 def join_event(code: str, guest_name: str = Form(...)):
     guest_name = sanitize_text(guest_name, 70)
     if len(guest_name) < 2:
-        raise HTTPException(400, "Guest name is too short")
+        raise HTTPException(400, "Имя гостя слишком короткое")
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
-            raise HTTPException(404, "Event not found")
+            raise HTTPException(404, "Мероприятие не найдено")
         guest_key = secrets.token_urlsafe(24)
         conn.execute("INSERT INTO participants(event_id,guest_name,guest_key) VALUES(?,?,?)", (event["id"], guest_name, guest_key))
         conn.commit()
@@ -298,22 +298,22 @@ def join_event(code: str, guest_name: str = Form(...)):
 def upload_photo(code: str, guest_key: str = Form(...), filter_name: str = Form(default="none"), photo: UploadFile = File(...)):
     raw = photo.file.read()
     if len(raw) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "File is too large. Max size is 10MB")
+        raise HTTPException(413, "Файл слишком большой. Максимум 10 МБ")
 
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
-            raise HTTPException(404, "Event not found")
+            raise HTTPException(404, "Мероприятие не найдено")
         participant = conn.execute("SELECT * FROM participants WHERE event_id=? AND guest_key=?", (event["id"], guest_key)).fetchone()
         if not participant:
-            raise HTTPException(401, "Invalid guest key")
+            raise HTTPException(401, "Неверный гостевой ключ")
         if participant["shots_used"] >= event["shots_limit"]:
-            raise HTTPException(403, "Shots limit reached")
+            raise HTTPException(403, "Лимит кадров исчерпан")
         suffix = Path(photo.filename or "photo.jpg").suffix.lower() or ".jpg"
         if suffix not in ALLOWED_EXTENSIONS:
-            raise HTTPException(400, "Unsupported file type")
+            raise HTTPException(400, "Неподдерживаемый тип файла")
         if photo.content_type and not photo.content_type.startswith("image/"):
-            raise HTTPException(400, "Invalid content type")
+            raise HTTPException(400, "Неверный content-type файла")
         filter_name = sanitize_text(filter_name, 24)
         filename = f"{code}_{secrets.token_hex(8)}{suffix}"
         target = UPLOAD_DIR / filename
@@ -330,7 +330,7 @@ def gallery(code: str, user=Depends(get_current_user)):
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=? AND owner_id=?", (code, user["id"])).fetchone()
         if not event:
-            raise HTTPException(404, "Event not found")
+            raise HTTPException(404, "Мероприятие не найдено")
         rows = conn.execute(
             """SELECT p.file_path,p.filter_name,p.created_at,pt.guest_name
                FROM photos p JOIN participants pt ON p.participant_id = pt.id

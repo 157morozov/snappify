@@ -22,12 +22,23 @@ async function request(path, options = {}) {
   }
   const data = await res.json().catch(() => ({}))
 
-  if (res.status === 401 && (data.detail === 'Session expired' || data.detail === 'Missing token')) {
+  if (res.status === 401 && (data.detail === 'Сессия истекла' || data.detail === 'Отсутствует токен авторизации')) {
     forceLogoutWithMessage('session-expired')
     throw new Error('Сессия истекла. Войдите снова.')
   }
 
-  if (!res.ok) throw new Error(data.detail || 'Request failed')
+  if (!res.ok) {
+    const detail = data?.detail
+    if (Array.isArray(detail) && detail.length) {
+      const first = detail[0]
+      throw new Error(first?.msg || 'Некорректные данные формы')
+    }
+    if (typeof detail === 'string') {
+      if (detail === 'Неверный логин или пароль') throw new Error('Неверный логин или пароль')
+      throw new Error(detail)
+    }
+    throw new Error('Ошибка запроса')
+  }
   return data
 }
 

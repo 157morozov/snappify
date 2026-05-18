@@ -1,7 +1,6 @@
 import {useEffect, useState} from 'react'
 import {useNavigate, useSearchParams} from 'react-router-dom'
 import {api} from '../../api'
-import {useSystemModal} from '../../components/system/modal/context'
 
 import './style.css'
 
@@ -15,13 +14,10 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [search] = useSearchParams()
   const nav = useNavigate()
-  const {showMessage} = useSystemModal()
 
   useEffect(() => {
-    if (search.get('reason') === 'session-expired') {
-      setError('Сессия истекла. Войдите в аккаунт снова.')
-      showMessage({title: 'Сессия завершена', text: 'Пожалуйста, войдите снова.', type: 'error'})
-    }
+    if (search.get('reason') === 'session-expired') setError('Сессия истекла. Войдите в аккаунт снова.')
+    if (search.get('reason') === 'logged-out') setError('Вы вышли из аккаунта.')
   }, [search, showMessage])
 
   const submit = async (e) => {
@@ -34,7 +30,6 @@ export default function AuthPage() {
         sessionStorage.setItem('pending_password', password)
         const params = new URLSearchParams({ login })
         if (data?.passkey_code) params.set('passkey_code', data.passkey_code)
-        showMessage({title: 'Регистрация начата', text: 'Подтвердите passkey код.', type: 'success'})
         nav(`/auth/verify?${params.toString()}`)
         return
       }
@@ -42,9 +37,8 @@ export default function AuthPage() {
       localStorage.setItem('token', data.token)
       localStorage.setItem('user_email', data.user?.login || login)
       localStorage.setItem('user_name', data.user?.name || '')
-      showMessage({title: 'Успешный вход', text: 'Добро пожаловать!', type: 'success'})
       nav('/')
-    } catch (err) { setError(err.message); showMessage({title:'Ошибка', text: err.message, type:'error'}) } finally { setLoading(false) }
+    } catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
   return <div className='user-home auth-page'>

@@ -10,11 +10,10 @@ import {useSystemModal} from "../../../components/system/modal/context"
 
 function Join() {
     const [code, setCode] = useState('')
-    const [guestName, setGuestName] = useState('Гость')
+    const [guestName] = useState(localStorage.getItem('user_name') || 'Гость')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
-    const {showMessage} = useSystemModal()
 
     async function handleSubmit(event) {
         event.preventDefault()
@@ -26,7 +25,6 @@ function Join() {
             navigate(`/event/${code.trim()}`)
         } catch (err) {
             setError(err.message)
-            showMessage({title: "Ошибка входа", text: err.message, type: "error"})
         } finally { setLoading(false) }
     }
 
@@ -42,10 +40,7 @@ function Join() {
                         <label className="user-event-join--form--label" htmlFor="inpEventJoinCode">Код мероприятия</label>
                         <input className="user-event-join--form--input" id="inpEventJoinCode" name="eventCode" value={code} onChange={e=>setCode(e.target.value)} placeholder="GxFs0z" minLength={6} maxLength={6} required/>
                     </div>
-                    <div className="user-event-join--form--container">
-                        <label className="user-event-join--form--label" htmlFor="inpEventJoinGuest">Ваше имя</label>
-                        <input className="user-event-join--form--input" id="inpEventJoinGuest" name="guestName" value={guestName} onChange={e=>setGuestName(e.target.value)} minLength={2} required/>
-                    </div>
+                    <p className="user-event-join--description">Имя гостя: <b>{guestName}</b></p>
                     <button type="submit" className="button" disabled={loading}>{loading ? 'Подключаем...' : 'Войти'}</button>
                 </form>
                 {error && <p className='auth-error'>{error}</p>}
