@@ -32,6 +32,10 @@ async def lifespan(_: FastAPI):
     init_db()
     yield
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(title="Snappify API", lifespan=lifespan)
 app.add_middleware(
