@@ -1,6 +1,6 @@
 import {Link} from "react-router-dom"
 
-import Nav from "../../../components/user/nav/component.jsx"
+import Nav from "../../../components/user/nav/component"
 import QRCode from "../../../components/icons/QRCode.jsx"
 
 import "./style.css"
