@@ -9,12 +9,14 @@ import Join from "./pages/event/join/page.jsx"
 import Event from "./pages/event/event/page.jsx"
 import AuthPage from "./pages/auth/page"
 import NotFound from "./pages/not-found/page"
+import VerifyPage from "./pages/auth/verify/page"
 
 import "./assets/global.css"
 
 function App() {
     const routesGuest = [
         { path: "/auth", element: <AuthPage/> },
+        { path: "/auth/verify", element: <VerifyPage/> },
         { path: "*", element: <NotFound/> },
     ]
 

@@ -11,7 +11,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
@@ -30,6 +30,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Snappify API", lifespan=lifespan)
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -176,8 +179,21 @@ def get_current_user(authorization: str = Header(default="")) -> sqlite3.Row:
         return user
 
 
+
+
+@app.get("/doc", include_in_schema=False)
+def doc_redirect(request: Request):
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=str(request.base_url) + "docs")
+
+
 @app.post("/api/auth/register")
 def register(payload: RegisterIn):
+    raw = photo.file.read()
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File is too large. Max size is 10MB")
+
     with closing(db()) as conn:
         exists = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()
         if exists:
@@ -236,8 +252,17 @@ def get_events(user=Depends(get_current_user)):
 
 @app.post("/api/events")
 def create_event(payload: EventIn, user=Depends(get_current_user)):
-    code = secrets.token_urlsafe(6)[:6]
+    code = ""
     with closing(db()) as conn:
+        for _ in range(10):
+            candidate = secrets.token_urlsafe(6)[:6]
+            taken = conn.execute("SELECT id FROM events WHERE code=?", (candidate,)).fetchone()
+            if not taken:
+                code = candidate
+                break
+        if not code:
+            raise HTTPException(500, "Could not generate event code")
+
         conn.execute(
             """INSERT INTO events(owner_id,code,name,shots_limit,reveal_mode,reveal_at,is_public,film_filter,created_at)
                VALUES(?,?,?,?,?,?,?,?,?)""",
@@ -252,6 +277,10 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
 
 @app.post("/api/events/{code}/join")
 def join_event(code: str, guest_name: str = Form(...)):
+    guest_name = guest_name.strip()
+    if len(guest_name) < 2:
+        raise HTTPException(400, "Guest name is too short")
+
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
@@ -285,10 +314,12 @@ def upload_photo(
         if participant["shots_used"] >= event["shots_limit"]:
             raise HTTPException(403, "Shots limit reached")
         suffix = Path(photo.filename or "photo.jpg").suffix.lower() or ".jpg"
+        if suffix not in ALLOWED_EXTENSIONS:
+            raise HTTPException(400, "Unsupported file type")
         filename = f"{code}_{secrets.token_hex(8)}{suffix}"
         target = UPLOAD_DIR / filename
         with target.open("wb") as f:
-            f.write(photo.file.read())
+            f.write(raw)
         conn.execute(
             "INSERT INTO photos(event_id,participant_id,file_path,filter_name,created_at) VALUES(?,?,?,?,?)",
             (event["id"], participant["id"], filename, filter_name, now()),

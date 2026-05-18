@@ -1,36 +1,32 @@
-import {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
-import {api} from '../../api';
+import {useState} from 'react'
+import {useNavigate} from 'react-router-dom'
+import {api} from '../../api'
 
 import './style.css'
 
 export default function AuthPage() {
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [needVerify, setNeedVerify] = useState(false);
-  const [error, setError] = useState('');
-  const nav = useNavigate();
+  const [mode, setMode] = useState('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const nav = useNavigate()
 
   const submit = async (e) => {
-    e.preventDefault(); setError('');
+    e.preventDefault()
+    setError('')
     try {
       if (mode === 'register') {
-        await api.register({email, password, name});
-        setNeedVerify(true);
-        return;
+        await api.register({email, password, name})
+        nav(`/auth/verify?email=${encodeURIComponent(email)}`)
+        return
       }
-      const data = await api.login({email, password});
-      localStorage.setItem('token', data.token);
-      nav('/');
-    } catch (err) { setError(err.message); }
-  };
-
-  const verify = async () => {
-    try { await api.verify(email, code); setNeedVerify(false); setMode('login'); }
-    catch (err) { setError(err.message); }
+      const data = await api.login({email, password})
+      localStorage.setItem('token', data.token)
+      nav('/')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return <div className='user-home auth-page'>
@@ -44,10 +40,6 @@ export default function AuthPage() {
     <button className='button button__outline' onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
       {mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}
     </button>
-    {needVerify && <div>
-      <input className='user-event-create--form--input' placeholder='Код из почты' value={code} onChange={e=>setCode(e.target.value)} />
-      <button className='button' onClick={verify}>Подтвердить email</button>
-    </div>}
-    {error && <p>{error}</p>}
+    {error && <p className='auth-error'>{error}</p>}
   </div>
 }

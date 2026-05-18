@@ -6,29 +6,31 @@
 - **Client:** React + Vite + React Router v6
 - **Server:** FastAPI + SQLite
 
----
-
-## 1) Установка и запуск Client
-
+## 1) Client (установка и запуск)
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-Client по умолчанию стартует на `http://localhost:5173`.
+Для запуска в локальной сети (чтобы открыть с телефона):
+```bash
+npm run dev:host
+```
 
-### Переменные окружения Client
+По умолчанию frontend: `http://localhost:5173`.
+
 Создайте `client/.env`:
-
 ```env
 VITE_API_BASE=http://localhost:8000/api
 ```
 
----
+Если тестируете с телефона, укажите IP компьютера:
+```env
+VITE_API_BASE=http://192.168.1.100:8000/api
+```
 
-## 2) Установка и запуск Server
-
+## 2) Server (установка и запуск)
 ```bash
 cd server
 python -m venv .venv
@@ -50,11 +52,14 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Server стартует на `http://localhost:8000`.
+Server: `http://localhost:8000`
+
+Swagger:
+- `http://localhost:8000/docs` (основной)
+- `http://localhost:8000/doc` (добавлен редирект на `/docs`)
 
 ### Переменные окружения Server
-Скопируйте `.env.example` в `.env` и настройте:
-
+Скопируйте `.env.example` в `.env`:
 ```env
 HOST=0.0.0.0
 PORT=8000
@@ -62,23 +67,28 @@ GMAIL_USER=your_gmail@gmail.com
 GMAIL_APP_PASSWORD=your_google_app_password
 ```
 
-> Для Gmail нужен **App Password** (2FA включена).
+## 3) Как правильно настроить Gmail для отправки писем
+1. Войдите в Google аккаунт.
+2. Включите **2-Step Verification (2FA)**: Google Account → Security.
+3. Перейдите в **App passwords**.
+4. Создайте пароль приложения (например, `Snappify Mail`).
+5. Скопируйте 16-символьный пароль и запишите в `.env` как `GMAIL_APP_PASSWORD`.
+6. В `GMAIL_USER` укажите тот же Gmail адрес.
 
----
+> Обычный пароль от почты для SMTP не подойдет.
 
-## 3) Решение вашей ошибки с `pip` (Windows)
+## 4) Ошибка `python-multipart` и проблема `pip launcher` на Windows
+Если видите:
+- `Form data requires "python-multipart" to be installed`
+- `Fatal error in launcher ... pip.exe ... Flashback ...`
 
-У вас сломан launcher `pip.exe` (он ссылается на старый путь `Flashback\\...`).
-
-Используйте **только** такой формат команд, чтобы обойти сломанный `pip.exe`:
-
+Используйте только:
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Если не помогает — пересоздайте venv:
-
+Если venv поврежден:
 ```powershell
 cd server
 rmdir /s /q .venv
@@ -88,16 +98,23 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-После этого ошибки:
-- `Form data requires "python-multipart" to be installed`
-- `pip launcher fatal error`
+## 5) Тест с телефона в одной Wi‑Fi сети
+1. Узнайте IP компьютера:
+   - Windows: `ipconfig`
+   - macOS/Linux: `ifconfig` или `ip a`
+2. Server запускайте с `HOST=0.0.0.0` (уже в `.env`).
+3. Frontend запускайте `npm run dev:host`.
+4. В `client/.env` поставьте `VITE_API_BASE=http://<IP_ПК>:8000/api`.
+5. Разрешите порты в firewall:
+   - `5173` (frontend)
+   - `8000` (backend)
+6. На телефоне откройте: `http://<IP_ПК>:5173`.
 
-должны исчезнуть.
-
----
-
-## 4) Проверка запуска
-
-1. Откройте `http://localhost:8000/docs` — Swagger FastAPI.
-2. Откройте `http://localhost:5173` — frontend.
-3. Зарегистрируйтесь, подтвердите email кодом, создайте событие.
+## 6) Что улучшено дополнительно
+- Добавлена отдельная страница подтверждения email (`/auth/verify`).
+- Ошибка `Invalid code` оформлена в стиле айдентики (выделенный error-box).
+- Усилена обработка загрузки фото:
+  - лимит размера файла 10MB,
+  - проверка расширения,
+  - валидация имени гостя,
+  - защита от коллизии кода события.
