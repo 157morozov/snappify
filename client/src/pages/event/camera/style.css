@@ -1,0 +1,5 @@
+.user-camera { width: calc(100% - var(--padding--extra-big) * 2); padding: 0 var(--padding--extra-big); display:flex; flex-direction:column; gap:12px; }
+.user-camera-video { width: 100%; border-radius: var(--border-radius--regular); border: var(--border--0); background: #000; }
+
+.camera-error{display:flex;flex-direction:column;gap:10px}
+.skeleton-card{height:120px;border-radius:12px;background:linear-gradient(90deg,#222,#333,#222);animation:sh 1.2s infinite}.skeleton-list{display:flex;flex-direction:column;gap:8px}@keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}

@@ -71,3 +71,5 @@
     opacity: .5;
 }
 
+
+.skeleton-list{display:flex;flex-direction:column;gap:8px}.skeleton-card{height:88px;border-radius:12px;background:linear-gradient(90deg,#222,#333,#222);animation:sh 1.2s infinite}@keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
