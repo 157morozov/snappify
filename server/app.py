@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,7 +23,13 @@ DB_PATH = BASE_DIR / "snappify.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-app = FastAPI(title="Snappify API")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Snappify API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -151,11 +158,6 @@ def init_db() -> None:
             """
         )
         conn.commit()
-
-
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
 
 
 def get_current_user(authorization: str = Header(default="")) -> sqlite3.Row:

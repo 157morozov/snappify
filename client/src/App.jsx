@@ -7,7 +7,7 @@ import Home from "./pages/home/page"
 import Create from "./pages/event/create/page"
 import Join from "./pages/event/join/page.jsx"
 import Event from "./pages/event/event/page.jsx"
-import AuthPage from "./pages/auth"
+import AuthPage from "./pages/auth/page"
 import NotFound from "./pages/not-found/page"
 
 import "./assets/global.css"
