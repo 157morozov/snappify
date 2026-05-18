@@ -18,7 +18,7 @@ export default function AuthPage() {
   useEffect(() => {
     if (search.get('reason') === 'session-expired') setError('Сессия истекла. Войдите в аккаунт снова.')
     if (search.get('reason') === 'logged-out') setError('Вы вышли из аккаунта.')
-  }, [search, showMessage])
+  }, [search])
 
   const submit = async (e) => {
     e.preventDefault(); setError(''); setLoading(true)

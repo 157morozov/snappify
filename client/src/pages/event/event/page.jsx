@@ -14,7 +14,7 @@ function Event() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [gallery, setGallery] = useState([])
-    const [tick, setTick] = useState(Date.now())
+    const [tick, setTick] = useState(0)
 
     useEffect(() => {
         const t = setInterval(() => setTick(Date.now()), 1000)
@@ -57,7 +57,7 @@ function Event() {
         <div className="user-event">
             <Link to="/" className="link"><IconBack/>Все мероприятия</Link>
             <h2 className="user-event--heading">{event.name}</h2>
-            <p className="user-event--date">{new Date(event.created_at || Date.now()).toLocaleDateString('ru-RU')}</p>
+            <p className="user-event--date">{new Date(event.created_at || tick).toLocaleDateString('ru-RU')}</p>
             <p className="user-event--date">{status} · {timerText}</p>
             <div className="user-event--configures">
                 <div className="user-event--configure"><span className="user-event--configure--number">{event.shots_limit}</span><span className="user-event--configure--caption">Кадров</span></div>
