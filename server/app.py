@@ -1,30 +1,31 @@
 import hashlib
+import logging
 import os
 import secrets
 import smtplib
-import logging
 import sqlite3
-from contextlib import closing
+from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 
 load_dotenv()
-
 logger = logging.getLogger("snappify")
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "snappify.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -33,9 +34,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Snappify API", lifespan=lifespan)
-
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -100,12 +98,12 @@ def send_mail(to_email: str, subject: str, body: str) -> tuple[bool, str]:
     msg["To"] = to_email
     msg.set_content(body)
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as smtp:
             smtp.login(gmail_user, gmail_pass)
             smtp.send_message(msg)
         return True, "sent"
     except Exception as exc:
-        logger.exception("Failed to send email: %s", exc)
+        logger.warning("Failed to send email: %s", exc)
         return False, str(exc)
 
 
@@ -177,17 +175,13 @@ def get_current_user(authorization: str = Header(default="")) -> sqlite3.Row:
     if not token:
         raise HTTPException(401, "Missing token")
     with closing(db()) as conn:
-        session = conn.execute(
-            "SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,)
-        ).fetchone()
+        session = conn.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token,)).fetchone()
         if not session or datetime.fromisoformat(session["expires_at"]) < datetime.now(timezone.utc):
             raise HTTPException(401, "Session expired")
         user = conn.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
         if not user:
             raise HTTPException(401, "User not found")
         return user
-
-
 
 
 @app.get("/doc", include_in_schema=False)
@@ -207,28 +201,18 @@ def register(payload: RegisterIn):
         if existing:
             if existing["is_verified"]:
                 raise HTTPException(400, "Email already registered")
-            conn.execute(
-                "UPDATE users SET name=?, password_hash=? WHERE id=?",
-                (payload.name, hash_password(payload.password), existing["id"]),
-            )
+            conn.execute("UPDATE users SET name=?, password_hash=? WHERE id=?", (payload.name, hash_password(payload.password), existing["id"]))
             conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (existing["id"], code, expires))
             conn.commit()
-            mail_ok, mail_message = send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
-            if not mail_ok:
-                return {"ok": False, "message": "Аккаунт есть, но email не подтвержден. Код сохранен, но письмо не отправлено.", "dev_code": code, "mail_error": mail_message}
-            return {"ok": True, "message": "Код отправлен на email"}
-
-        conn.execute(
-            "INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
-            (payload.name, payload.email, hash_password(payload.password), now()),
-        )
-        user_id = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()["id"]
-        conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (user_id, code, expires))
-        conn.commit()
+        else:
+            conn.execute("INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)", (payload.name, payload.email, hash_password(payload.password), now()))
+            user_id = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()["id"]
+            conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (user_id, code, expires))
+            conn.commit()
 
     mail_ok, mail_message = send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
     if not mail_ok:
-        return {"ok": False, "message": "Регистрация создана, но письмо не отправлено. Используйте код ниже.", "dev_code": code, "mail_error": mail_message}
+        return {"ok": False, "message": "Письмо не отправлено. Используйте dev_code для подтверждения.", "dev_code": code, "mail_error": mail_message}
     return {"ok": True, "message": "Код отправлен на email"}
 
 
@@ -238,10 +222,7 @@ def verify(email: EmailStr = Form(), code: str = Form()):
         user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if not user:
             raise HTTPException(404, "User not found")
-        v = conn.execute(
-            "SELECT * FROM verification_codes WHERE user_id=? ORDER BY id DESC LIMIT 1",
-            (user["id"],),
-        ).fetchone()
+        v = conn.execute("SELECT * FROM verification_codes WHERE user_id=? ORDER BY id DESC LIMIT 1", (user["id"],)).fetchone()
         if not v or v["code"] != code or datetime.fromisoformat(v["expires_at"]) < datetime.now(timezone.utc):
             raise HTTPException(400, "Invalid code")
         conn.execute("UPDATE users SET is_verified=1 WHERE id=?", (user["id"],))
@@ -287,10 +268,7 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
         conn.execute(
             """INSERT INTO events(owner_id,code,name,shots_limit,reveal_mode,reveal_at,is_public,film_filter,created_at)
                VALUES(?,?,?,?,?,?,?,?,?)""",
-            (
-                user["id"], code, payload.name, payload.shots_limit, payload.reveal_mode,
-                payload.reveal_at, int(payload.is_public), int(payload.film_filter), now()
-            ),
+            (user["id"], code, payload.name, payload.shots_limit, payload.reveal_mode, payload.reveal_at, int(payload.is_public), int(payload.film_filter), now()),
         )
         conn.commit()
     return {"ok": True, "code": code}
@@ -301,27 +279,18 @@ def join_event(code: str, guest_name: str = Form(...)):
     guest_name = guest_name.strip()
     if len(guest_name) < 2:
         raise HTTPException(400, "Guest name is too short")
-
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
             raise HTTPException(404, "Event not found")
         guest_key = secrets.token_urlsafe(24)
-        conn.execute(
-            "INSERT INTO participants(event_id,guest_name,guest_key) VALUES(?,?,?)",
-            (event["id"], guest_name, guest_key),
-        )
+        conn.execute("INSERT INTO participants(event_id,guest_name,guest_key) VALUES(?,?,?)", (event["id"], guest_name, guest_key))
         conn.commit()
     return {"guest_key": guest_key, "event_id": event["id"], "shots_limit": event["shots_limit"]}
 
 
 @app.post("/api/events/{code}/photos")
-def upload_photo(
-    code: str,
-    guest_key: str = Form(...),
-    filter_name: str = Form(default="none"),
-    photo: UploadFile = File(...),
-):
+def upload_photo(code: str, guest_key: str = Form(...), filter_name: str = Form(default="none"), photo: UploadFile = File(...)):
     raw = photo.file.read()
     if len(raw) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "File is too large. Max size is 10MB")
@@ -330,10 +299,7 @@ def upload_photo(
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
             raise HTTPException(404, "Event not found")
-        participant = conn.execute(
-            "SELECT * FROM participants WHERE event_id=? AND guest_key=?",
-            (event["id"], guest_key),
-        ).fetchone()
+        participant = conn.execute("SELECT * FROM participants WHERE event_id=? AND guest_key=?", (event["id"], guest_key)).fetchone()
         if not participant:
             raise HTTPException(401, "Invalid guest key")
         if participant["shots_used"] >= event["shots_limit"]:
@@ -345,10 +311,7 @@ def upload_photo(
         target = UPLOAD_DIR / filename
         with target.open("wb") as f:
             f.write(raw)
-        conn.execute(
-            "INSERT INTO photos(event_id,participant_id,file_path,filter_name,created_at) VALUES(?,?,?,?,?)",
-            (event["id"], participant["id"], filename, filter_name, now()),
-        )
+        conn.execute("INSERT INTO photos(event_id,participant_id,file_path,filter_name,created_at) VALUES(?,?,?,?,?)", (event["id"], participant["id"], filename, filter_name, now()))
         conn.execute("UPDATE participants SET shots_used=shots_used+1 WHERE id=?", (participant["id"],))
         conn.commit()
     return {"ok": True, "url": f"/uploads/{filename}"}
@@ -372,9 +335,4 @@ def gallery(code: str, user=Depends(get_current_user)):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "app:app",
-        host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "8000"),),
-        reload=True,
-    )
+    uvicorn.run("app:app", host=os.getenv("HOST", "0.0.0.0"), port=int(os.getenv("PORT", "8000")), reload=True)

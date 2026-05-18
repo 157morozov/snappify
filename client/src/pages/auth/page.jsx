@@ -18,10 +18,10 @@ export default function AuthPage() {
     try {
       if (mode === 'register') {
         const data = await api.register({email, password, name})
-        if (data?.ok === false) {
-          setError(`${data.message}${data.dev_code ? ` Код: ${data.dev_code}` : ""}`)
-        }
-        nav(`/auth/verify?email=${encodeURIComponent(email)}`)
+        const params = new URLSearchParams({ email })
+        if (data?.dev_code) params.set('dev_code', data.dev_code)
+        if (data?.message) params.set('message', data.message)
+        nav(`/auth/verify?${params.toString()}`)
         return
       }
       const data = await api.login({email, password})
