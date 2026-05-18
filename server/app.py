@@ -190,10 +190,6 @@ def doc_redirect(request: Request):
 
 @app.post("/api/auth/register")
 def register(payload: RegisterIn):
-    raw = photo.file.read()
-    if len(raw) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "File is too large. Max size is 10MB")
-
     with closing(db()) as conn:
         exists = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()
         if exists:
@@ -301,6 +297,10 @@ def upload_photo(
     filter_name: str = Form(default="none"),
     photo: UploadFile = File(...),
 ):
+    raw = photo.file.read()
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File is too large. Max size is 10MB")
+
     with closing(db()) as conn:
         event = conn.execute("SELECT * FROM events WHERE code=?", (code,)).fetchone()
         if not event:
