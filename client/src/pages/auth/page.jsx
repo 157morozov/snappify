@@ -17,7 +17,10 @@ export default function AuthPage() {
     setError('')
     try {
       if (mode === 'register') {
-        await api.register({email, password, name})
+        const data = await api.register({email, password, name})
+        if (data?.ok === false) {
+          setError(`${data.message}${data.dev_code ? ` Код: ${data.dev_code}` : ""}`)
+        }
         nav(`/auth/verify?email=${encodeURIComponent(email)}`)
         return
       }

@@ -2,6 +2,7 @@ import hashlib
 import os
 import secrets
 import smtplib
+import logging
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
 
 load_dotenv()
+
+logger = logging.getLogger("snappify")
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "snappify.db"
@@ -85,19 +88,25 @@ def verify_password(password: str, stored: str) -> bool:
     return secrets.compare_digest(check, digest)
 
 
-def send_mail(to_email: str, subject: str, body: str) -> None:
-    gmail_user = os.getenv("GMAIL_USER")
-    gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
+def send_mail(to_email: str, subject: str, body: str) -> tuple[bool, str]:
+    gmail_user = (os.getenv("GMAIL_USER") or "").strip().strip('"')
+    gmail_pass = (os.getenv("GMAIL_APP_PASSWORD") or "").strip().strip('"')
     if not gmail_user or not gmail_pass:
-        return
+        return False, "Gmail credentials are not configured"
+
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = gmail_user
     msg["To"] = to_email
     msg.set_content(body)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-        smtp.login(gmail_user, gmail_pass)
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+            smtp.login(gmail_user, gmail_pass)
+            smtp.send_message(msg)
+        return True, "sent"
+    except Exception as exc:
+        logger.exception("Failed to send email: %s", exc)
+        return False, str(exc)
 
 
 def init_db() -> None:
@@ -191,19 +200,35 @@ def doc_redirect(request: Request):
 @app.post("/api/auth/register")
 def register(payload: RegisterIn):
     with closing(db()) as conn:
-        exists = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()
-        if exists:
-            raise HTTPException(400, "Email already registered")
+        existing = conn.execute("SELECT * FROM users WHERE email=?", (payload.email,)).fetchone()
+        code = str(secrets.randbelow(900000) + 100000)
+        expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+
+        if existing:
+            if existing["is_verified"]:
+                raise HTTPException(400, "Email already registered")
+            conn.execute(
+                "UPDATE users SET name=?, password_hash=? WHERE id=?",
+                (payload.name, hash_password(payload.password), existing["id"]),
+            )
+            conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (existing["id"], code, expires))
+            conn.commit()
+            mail_ok, mail_message = send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
+            if not mail_ok:
+                return {"ok": False, "message": "Аккаунт есть, но email не подтвержден. Код сохранен, но письмо не отправлено.", "dev_code": code, "mail_error": mail_message}
+            return {"ok": True, "message": "Код отправлен на email"}
+
         conn.execute(
             "INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
             (payload.name, payload.email, hash_password(payload.password), now()),
         )
         user_id = conn.execute("SELECT id FROM users WHERE email=?", (payload.email,)).fetchone()["id"]
-        code = str(secrets.randbelow(900000) + 100000)
-        expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
         conn.execute("INSERT INTO verification_codes(user_id,code,expires_at) VALUES(?,?,?)", (user_id, code, expires))
         conn.commit()
-    send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
+
+    mail_ok, mail_message = send_mail(payload.email, "Snappify verification code", f"Your code: {code}")
+    if not mail_ok:
+        return {"ok": False, "message": "Регистрация создана, но письмо не отправлено. Используйте код ниже.", "dev_code": code, "mail_error": mail_message}
     return {"ok": True, "message": "Код отправлен на email"}
 
 
