@@ -6,6 +6,16 @@ import Nav from "../../components/user/nav/component"
 
 import "./style.css"
 
+function eventStatus(event) {
+    const now = Date.now()
+    const start = event.start_at ? new Date(event.start_at).getTime() : null
+    const end = event.end_at ? new Date(event.end_at).getTime() : null
+    if (start && now < start) return "Запланировано"
+    if (start && end && now >= start && now <= end) return "В процессе"
+    if (end && now > end) return "Завершено"
+    return "Без даты"
+}
+
 function Home() {
     const [events, setEvents] = useState([])
     const [error, setError] = useState("")
@@ -32,6 +42,7 @@ function Home() {
                             <div className="user-home--event--configures">
                                 <span className="user-home--event--configure">📷 {event.shots_limit}</span>
                                 <span className="user-home--event--configure">🔓 {event.reveal_mode}</span>
+                                <span className="user-home--event--configure">🗓 {eventStatus(event)}</span>
                             </div>
                         </Link>
                     ))}

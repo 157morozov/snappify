@@ -22,6 +22,11 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 
 
+def sanitize_text(value: str, max_len: int = 120) -> str:
+    safe = value.strip().replace("<", "").replace(">", "")
+    return safe[:max_len]
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
@@ -41,6 +46,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    return response
 
 
 class RegisterIn(BaseModel):
@@ -64,6 +78,8 @@ class EventIn(BaseModel):
     shots_limit: int = Field(ge=1, le=50)
     reveal_mode: str = Field(pattern="^(instant|delayed)$")
     reveal_at: Optional[str] = None
+    start_at: Optional[str] = None
+    end_at: Optional[str] = None
     is_public: bool = True
     film_filter: bool = False
 
@@ -128,6 +144,8 @@ def init_db() -> None:
                 reveal_at TEXT,
                 is_public INTEGER NOT NULL,
                 film_filter INTEGER NOT NULL,
+                start_at TEXT,
+                end_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(owner_id) REFERENCES users(id)
             );
@@ -152,6 +170,12 @@ def init_db() -> None:
             """
         )
         conn.commit()
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(events)").fetchall()}
+        if "start_at" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN start_at TEXT")
+        if "end_at" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN end_at TEXT")
+
 
 
 def get_current_user(authorization: str = Header(default="")) -> sqlite3.Row:
@@ -177,8 +201,8 @@ def doc_redirect(request: Request):
 
 @app.post("/api/auth/register")
 def register(payload: RegisterIn):
-    login = payload.login.strip().lower()
-    name = payload.name.strip().replace("<", "").replace(">", "")
+    login = sanitize_text(payload.login, 64).lower()
+    name = sanitize_text(payload.name, 70)
     passkey_code = str(secrets.randbelow(900000) + 100000)
     with closing(db()) as conn:
         existing = conn.execute("SELECT * FROM users WHERE email=?", (login,)).fetchone()
@@ -206,18 +230,6 @@ def passkey_confirm(payload: PasskeyConfirmIn):
     return {"ok": True}
 
 
-@app.post("/api/auth/verify")
-def verify(email: str = Form(), code: str = Form()):
-    with closing(db()) as conn:
-        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if not user:
-            raise HTTPException(404, "User not found")
-        v = conn.execute("SELECT * FROM verification_codes WHERE user_id=? ORDER BY id DESC LIMIT 1", (user["id"],)).fetchone()
-        if not v or v["code"] != code or datetime.fromisoformat(v["expires_at"]) < datetime.now(timezone.utc):
-            raise HTTPException(400, "Invalid code")
-        conn.execute("UPDATE users SET is_verified=1 WHERE id=?", (user["id"],))
-        conn.commit()
-    return {"ok": True}
 
 
 @app.post("/api/auth/login")
@@ -245,6 +257,9 @@ def get_events(user=Depends(get_current_user)):
 @app.post("/api/events")
 def create_event(payload: EventIn, user=Depends(get_current_user)):
     code = ""
+    event_name = sanitize_text(payload.name, 140)
+    if payload.start_at and payload.end_at and payload.end_at < payload.start_at:
+        raise HTTPException(400, "Event end date must be after start date")
     with closing(db()) as conn:
         for _ in range(10):
             candidate = secrets.token_urlsafe(6)[:6]
@@ -256,9 +271,9 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
             raise HTTPException(500, "Could not generate event code")
 
         conn.execute(
-            """INSERT INTO events(owner_id,code,name,shots_limit,reveal_mode,reveal_at,is_public,film_filter,created_at)
-               VALUES(?,?,?,?,?,?,?,?,?)""",
-            (user["id"], code, payload.name, payload.shots_limit, payload.reveal_mode, payload.reveal_at, int(payload.is_public), int(payload.film_filter), now()),
+            """INSERT INTO events(owner_id,code,name,shots_limit,reveal_mode,reveal_at,is_public,film_filter,start_at,end_at,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (user["id"], code, event_name, payload.shots_limit, payload.reveal_mode, payload.reveal_at, int(payload.is_public), int(payload.film_filter), payload.start_at, payload.end_at, now()),
         )
         conn.commit()
     return {"ok": True, "code": code}
@@ -266,7 +281,7 @@ def create_event(payload: EventIn, user=Depends(get_current_user)):
 
 @app.post("/api/events/{code}/join")
 def join_event(code: str, guest_name: str = Form(...)):
-    guest_name = guest_name.strip()
+    guest_name = sanitize_text(guest_name, 70)
     if len(guest_name) < 2:
         raise HTTPException(400, "Guest name is too short")
     with closing(db()) as conn:
@@ -297,6 +312,9 @@ def upload_photo(code: str, guest_key: str = Form(...), filter_name: str = Form(
         suffix = Path(photo.filename or "photo.jpg").suffix.lower() or ".jpg"
         if suffix not in ALLOWED_EXTENSIONS:
             raise HTTPException(400, "Unsupported file type")
+        if photo.content_type and not photo.content_type.startswith("image/"):
+            raise HTTPException(400, "Invalid content type")
+        filter_name = sanitize_text(filter_name, 24)
         filename = f"{code}_{secrets.token_hex(8)}{suffix}"
         target = UPLOAD_DIR / filename
         with target.open("wb") as f:

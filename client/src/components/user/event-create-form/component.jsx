@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { api } from "../../../api"
 
 import "./style.css"
+import {useSystemModal} from "../../../components/system/modal/context"
 
 function EventCreateForm() {
     const [photoCount, setPhotoCount] = useState(20)
@@ -10,8 +11,11 @@ function EventCreateForm() {
     const [delayed, setDelayed] = useState(false)
     const [film, setFilm] = useState(false)
     const [error, setError] = useState('')
+    const [startAt, setStartAt] = useState('')
+    const [endAt, setEndAt] = useState('')
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
+    const {showMessage} = useSystemModal()
 
     async function handleSubmit(event) {
         event.preventDefault()
@@ -19,10 +23,12 @@ function EventCreateForm() {
         setLoading(true)
         try {
             const revealAt = delayed ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : null
-            const data = await api.createEvent({ name, shots_limit: Number(photoCount), reveal_mode: delayed ? 'delayed' : 'instant', reveal_at: revealAt, is_public: true, film_filter: film })
+            const data = await api.createEvent({ name, shots_limit: Number(photoCount), reveal_mode: delayed ? 'delayed' : 'instant', reveal_at: revealAt, start_at: startAt ? new Date(startAt).toISOString() : null, end_at: endAt ? new Date(endAt).toISOString() : null, is_public: true, film_filter: film })
+            showMessage({title: "Успех", text: "Мероприятие создано", type: "success"})
             navigate(`/event/${data.code}`)
         } catch (err) {
             setError(err.message)
+            showMessage({title: "Ошибка", text: err.message, type: "error"})
         } finally { setLoading(false) }
     }
 
@@ -31,6 +37,15 @@ function EventCreateForm() {
             <div className="user-event-create--form--container">
                 <label className="user-event-create--form--label" htmlFor="inpEventCreateName">Название</label>
                 <input className="user-event-create--form--input" id="inpEventCreateName" name="eventName" placeholder="Свадьба, день рождения..." required value={name} onChange={e => setName(e.target.value)} />
+            </div>
+
+            <div className="user-event-create--form--container">
+                <label className="user-event-create--form--label" htmlFor="inpEventStartAt">Дата начала</label>
+                <input className="user-event-create--form--input" id="inpEventStartAt" type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} />
+            </div>
+            <div className="user-event-create--form--container">
+                <label className="user-event-create--form--label" htmlFor="inpEventEndAt">Дата окончания</label>
+                <input className="user-event-create--form--input" id="inpEventEndAt" type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} />
             </div>
             <div className="user-event-create--form--container">
                 <label className="user-event-create--form--label">Кадров на гостя</label>

@@ -11,6 +11,8 @@ import AuthPage from "./pages/auth/page"
 import NotFound from "./pages/not-found/page"
 import VerifyPage from "./pages/auth/verify/page"
 import ProfilePage from "./pages/profile/page"
+import CameraPage from "./pages/event/camera/page"
+import JoinQrPage from "./pages/event/join/qr/page"
 
 import "./assets/global.css"
 
@@ -25,7 +27,9 @@ function App() {
         { path: "/", element: <Home/> },
         { path: "/event/create", element: <Create/> },
         { path: "/event/join", element: <Join/> },
+        { path: "/event/join/qr", element: <JoinQrPage/> },
         { path: "/event/:code", element: <Event/> },
+        { path: "/event/:code/camera", element: <CameraPage/> },
         { path: "/profile", element: <ProfilePage/> },
     ]
 

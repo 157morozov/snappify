@@ -1,0 +1,2 @@
+.user-camera { width: calc(100% - var(--padding--extra-big) * 2); padding: 0 var(--padding--extra-big); display:flex; flex-direction:column; gap:12px; }
+.user-camera-video { width: 100%; border-radius: var(--border-radius--regular); border: var(--border--0); background: #000; }
