@@ -80,7 +80,13 @@ function Event() {
         } finally {
             setJoinLoading(false)
         }
-    }
+        load()
+        return () => clearInterval(t)
+    }, [code])
+
+    if (loading) return <div className="user-event"><div className='skeleton-card'/></div>
+    if (error) return <div className="user-event"><p className='auth-error'>{error}</p></div>
+    if (!event) return <div className="user-event"><p>Мероприятие не найдено.</p><Link to='/' className='link'>Назад</Link></div>
 
     return <div className="user-event">
         {status === 'Завершено' && <div className='confetti'>🎉 ✨ 🎊</div>}
