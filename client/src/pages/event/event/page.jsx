@@ -15,6 +15,7 @@ function Event() {
     const [gallery, setGallery] = useState([])
     const [tick, setTick] = useState(0)
     const [qrOpen, setQrOpen] = useState(false)
+    const [joinLoading, setJoinLoading] = useState(false)
 
     useEffect(() => {
         const t = setInterval(() => setTick(Date.now()), 1000)
@@ -25,7 +26,7 @@ function Event() {
                     const events = await api.events()
                     found = events.find(item => item.code === code) || null
                 } catch {
-                    // ignore private endpoint errors for guest-mode
+                    // guest flow
                 }
 
                 if (!found) found = await api.publicEvent(code)
@@ -53,6 +54,7 @@ function Event() {
     if (error) return <div className="user-event"><p className='auth-error'>{error}</p></div>
     if (!event) return <div className="user-event"><p>Мероприятие не найдено.</p><Link to='/' className='link'>Назад</Link></div>
 
+    const guestKey = sessionStorage.getItem(`guest_key_${code}`)
     const start = event.start_at ? new Date(event.start_at).getTime() : null
     const end = event.end_at ? new Date(event.end_at).getTime() : null
     const revealAt = event.reveal_at ? new Date(event.reveal_at).getTime() : null
@@ -60,11 +62,31 @@ function Event() {
     const fmt = (ms) => { const total = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(total / 3600); const m = Math.floor((total % 3600) / 60); const s = total % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
     const timerText = start && tick < start ? `До начала: ${fmt(start - tick)}` : (start && end && tick <= end ? `До конца: ${fmt(end - tick)}` : (end && tick > end ? `После завершения: ${fmt(tick - end)}` : 'Таймер недоступен'))
     const revealAllowed = event.reveal_mode === 'instant' || (end && tick >= end) || (revealAt && tick >= revealAt)
-    const canTakePhoto = status === 'В процессе'
+    const canTakePhoto = status === 'В процессе' && !!guestKey
 
     const eventUrl = `${DOMAIN_NAME}/event/${event.code}`
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(`https://${eventUrl}`)}`
     const apiRoot = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://localhost:8000'
+
+    const handleJoin = async () => {
+        setJoinLoading(true)
+        setError('')
+        try {
+            const guestName = (localStorage.getItem('user_name') || 'Гость').trim()
+            const data = await api.joinEvent(code, guestName)
+            sessionStorage.setItem(`guest_key_${code}`, data.guest_key)
+        } catch (err) {
+            setError(err.message)
+        } finally {
+            setJoinLoading(false)
+        }
+        load()
+        return () => clearInterval(t)
+    }, [code])
+
+    if (loading) return <div className="user-event"><div className='skeleton-card'/></div>
+    if (error) return <div className="user-event"><p className='auth-error'>{error}</p></div>
+    if (!event) return <div className="user-event"><p>Мероприятие не найдено.</p><Link to='/' className='link'>Назад</Link></div>
 
     return <div className="user-event">
         {status === 'Завершено' && <div className='confetti'>🎉 ✨ 🎊</div>}
@@ -81,8 +103,10 @@ function Event() {
             </div>
         </div>
 
+        {!guestKey && <button className="button" onClick={handleJoin} disabled={joinLoading}>{joinLoading ? 'Входим...' : 'Войти в мероприятие'}</button>}
+
         <Link to={`/event/${event.code}/camera`} className="button" style={{opacity: canTakePhoto ? 1 : .5, pointerEvents: canTakePhoto ? 'auto' : 'none'}}>
-            {status === 'Запланировано' ? 'Фото доступны после старта' : (status === 'Завершено' ? 'Мероприятие завершено' : '+ Сделать фото')}
+            {status === 'Запланировано' ? 'Фото доступны после старта' : (status === 'Завершено' ? 'Мероприятие завершено' : (!guestKey ? 'Сначала войдите в мероприятие' : '+ Сделать фото'))}
         </Link>
 
         <div className="user-event--gallery">
