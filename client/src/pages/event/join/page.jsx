@@ -6,6 +6,7 @@ import QRCode from "../../../components/icons/QRCode"
 import {api} from "../../../api"
 
 import "./style.css"
+import {useSystemModal} from "../../../components/system/modal/context"
 
 function Join() {
     const [code, setCode] = useState('')
