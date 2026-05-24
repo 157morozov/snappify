@@ -138,6 +138,7 @@ export default function CameraPage() {
         ctx.putImageData(img, 0, 0)
       }
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+      if (!blob) throw new Error('Не удалось подготовить изображение для загрузки')
       const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' })
       await api.uploadPhoto({ code, guestKey, file, filterName: event.film_filter ? 'film' : 'none' })
       showMessage({title:'Фото добавлено', text:'Снимок успешно загружен в мероприятие.', type:'success'})
